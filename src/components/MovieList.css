@@ -1,0 +1,49 @@
+.movie-list {
+    margin: 30px;
+  }
+  
+  /* Cabeçalho das listas */
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    position: relative;
+  }
+  
+  /* Linha maior abaixo do título */
+  .underline {
+    height: 2px;
+    background-color: #444;
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  
+  /* Botão "Ver mais" */
+  .ver-mais {
+    font-size: 14px;
+    color: #bbb;
+    cursor: pointer;
+    position: absolute;
+    right: 0;
+  }
+  
+  .ver-mais:hover {
+    color: white;
+    text-decoration: underline;
+  }
+  
+  /* Grid para exibir os filmes */
+  .movie-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Espaçamento entre as filas */
+  }
+  
+  /* Estiliza cada fila de filmes */
+  .movie-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr); /* 6 filmes por linha */
+    gap: 20px; /* Espaçamento perfeito entre os filmes */
+    padding: 10px 0;
+  }

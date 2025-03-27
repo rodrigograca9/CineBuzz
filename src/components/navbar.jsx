@@ -15,27 +15,27 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-[#14181C] text-white p-4 flex justify-between items-center shadow-[0px_4px_6px_rgba(0,0,0,0.1)]">
+    <nav className="bg-[#14181C] text-white p-4 flex justify-between items-center shadow-lg">
       {/* Logo */}
       <img
         src="/logo.png"
         alt="Logo do CineBuzz"
-        className="h-10 cursor-pointer"
+        className="h-12 cursor-pointer transform transition duration-300 hover:scale-105"
         onClick={() => navigate("/")}
       />
 
-      <div className="flex gap-6 items-center">
+      <div className="flex gap-8 items-center">
         {/* Links de Navegação */}
         <button
           onClick={() => navigate("/movies")}
-          className="hover:text-gray-400 transition"
+          className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
         >
           Filmes
         </button>
 
         <button
           onClick={() => navigate("/watchlist")}
-          className="hover:text-gray-400 transition"
+          className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
         >
           Watchlist
         </button>
@@ -50,7 +50,7 @@ export default function Navbar() {
             placeholder="Pesquisar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="p-2 pl-4 pr-10 bg-gray-700 text-white outline-none w-48 focus:w-56 transition-all duration-300 rounded-full"
+            className="p-2 pl-4 pr-10 bg-gray-700 text-white outline-none w-48 focus:w-64 transition-all duration-300 rounded-full"
           />
           <button
             type="submit"
@@ -70,7 +70,7 @@ export default function Navbar() {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 bg-gray-700 p-2 mt-2 w-40 rounded shadow-lg">
+            <div className="absolute right-0 bg-gray-700 p-2 mt-2 w-44 rounded-lg shadow-lg transform transition-all duration-300">
               <button
                 onClick={() => navigate("/")}
                 className="block w-full text-left p-2 hover:bg-gray-600 transition"

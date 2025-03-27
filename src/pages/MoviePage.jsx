@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const API_BASE_URL = "https://api.themoviedb.org/3";
 const API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MzRkNDdmMDhlYmY4ZjA5OGZiNTk4Y2ViMTA1NGMzZSIsIm5iZiI6MTc0MDA2NDM5Mi42NzkwMDAxLCJzdWIiOiI2N2I3NDY4OGU0ODRmYzIxNTQxYTIzNTEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.eiEa5fYu8UkMxztHU4IgNpCjkxnbmOZVde2p8Zsm2a4';
@@ -11,22 +11,50 @@ const API_OPTIONS = {
   },
 };
 
-const MOVIES_PER_PAGE = 24;
+const MOVIES_PER_PAGE = 64;
 
 export default function FilmesPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [movies, setMovies] = useState([]);
   const [genres, setGenres] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(
+    location.state?.page || 1  // Use saved page from location state or default to 1
+  );
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Ref para manter os IDs dos filmes já carregados em todas as páginas
+  const loadedMovieIdsRef = useRef(new Set());
+  const movieGridRef = useRef(null);
+
+  // Restore filter states if available in location state
+  useEffect(() => {
+    if (location.state) {
+      setSearch(location.state.search || "");
+      setSelectedGenre(location.state.selectedGenre || "");
+      setSelectedYear(location.state.selectedYear || "");
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    // Limpar filmes carregados quando filtros mudam
+    loadedMovieIdsRef.current.clear();
+    fetchMovies();
+  }, [search, selectedGenre, selectedYear]);
+
   useEffect(() => {
     fetchMovies();
-  }, [search, selectedGenre, selectedYear, currentPage]);
+    // Scroll to top of movie grid when page changes
+    if (movieGridRef.current) {
+      movieGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     fetchGenres();
@@ -35,26 +63,46 @@ export default function FilmesPage() {
   async function fetchMovies() {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/discover/movie?language=pt-PT&page=${currentPage}`;
+      let page = currentPage;
+      const uniqueMoviesArray = [];
+      let totalResults = 0;
 
-      if (search) {
-        url = `${API_BASE_URL}/search/movie?query=${search}&language=pt-PT&page=${currentPage}`;
+      while (uniqueMoviesArray.length < MOVIES_PER_PAGE) {
+        let url = `${API_BASE_URL}/discover/movie?language=pt-PT&page=${page}`;
+
+        if (search) {
+          url = `${API_BASE_URL}/search/movie?query=${search}&language=pt-PT&page=${page}`;
+        }
+
+        const filters = [];
+        if (selectedGenre) filters.push(`with_genres=${selectedGenre}`);
+        if (selectedYear) filters.push(`primary_release_year=${selectedYear}`);
+
+        if (filters.length > 0) {
+          url += `&${filters.join("&")}`;
+        }
+
+        const res = await fetch(url, API_OPTIONS);
+        if (!res.ok) throw new Error("Erro ao buscar filmes!");
+        const data = await res.json();
+
+        totalResults = data.total_results;
+
+        // Adicionar filmes ao array apenas se não existirem na lista global de IDs
+        for (const movie of data.results) {
+          if (!loadedMovieIdsRef.current.has(movie.id) && uniqueMoviesArray.length < MOVIES_PER_PAGE) {
+            loadedMovieIdsRef.current.add(movie.id);
+            uniqueMoviesArray.push(movie);
+          }
+        }
+
+        if (data.results.length === 0) break;
+
+        page++; // Passa para a próxima página
       }
 
-      const filters = [];
-      if (selectedGenre) filters.push(`with_genres=${selectedGenre}`);
-      if (selectedYear) filters.push(`primary_release_year=${selectedYear}`);
-
-      if (filters.length > 0) {
-        url += `&${filters.join("&")}`;
-      }
-
-      const res = await fetch(url, API_OPTIONS);
-      if (!res.ok) throw new Error("Erro ao buscar filmes!");
-      const data = await res.json();
-
-      setMovies(data.results.slice(0, MOVIES_PER_PAGE));
-      setTotalPages(Math.ceil(data.total_results / MOVIES_PER_PAGE));
+      setMovies(uniqueMoviesArray);
+      setTotalPages(Math.ceil(totalResults / MOVIES_PER_PAGE)); 
     } catch (err) {
       setError(err.message);
     } finally {
@@ -93,8 +141,29 @@ export default function FilmesPage() {
     }
   }
 
+  // Função para gerar array de páginas próximas
+  function generatePageNumbers() {
+    const pageNumbers = [];
+    const maxPagesToShow = 4;
+    const halfMaxPages = Math.floor(maxPagesToShow / 2);
+
+    let startPage = Math.max(1, currentPage - halfMaxPages);
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    // Ajustar o início se estivermos próximo do final
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return pageNumbers;
+  }
+
   return (
-    <div className="max-w-6xl mx-auto p-6 text-white">
+    <div className="max-w-7xl mx-auto p-6 text-white">
       <h2 className="text-2xl font-bold mb-4">Explorar Filmes</h2>
 
       {/* Barra de Pesquisa e Filtros */}
@@ -127,28 +196,37 @@ export default function FilmesPage() {
         />
       </form>
 
+      {/* Referência para scroll */}
+      <div ref={movieGridRef}></div>
+
       {/* Lista de Filmes */}
-      {loading && <p className="text-white text-center">Carregando...</p>}
+      {loading && <p className="text-white text-center">A carregar...</p>}
       {error && <p className="text-red-500 text-center">{error}</p>}
       {!loading && movies.length === 0 && (
         <p className="text-center text-gray-400">Nenhum filme encontrado.</p>
       )}
 
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-8 gap-3">
         {movies.map((movie) => (
           <Link
             to={`/movie/${movie.id}`}
+            state={{
+              page: currentPage,
+              search,
+              selectedGenre,
+              selectedYear
+            }}
             key={movie.id}
-            className="bg-gray-800 p-2 rounded-md hover:opacity-75 transition"
+            className="bg-gray-800 p-1 rounded-md hover:opacity-75 transition"
           >
             <img
               src={movie.poster_path
                 ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
                 : "https://via.placeholder.com/200x300?text=Sem+Imagem"}
               alt={movie.title}
-              className="rounded-md"
+              className="rounded-md w-full h-48 object-cover"
             />
-            <p className="mt-2 text-center">{movie.title}</p>
+            <p className="mt-2 text-center text-sm line-clamp-2">{movie.title}</p>
           </Link>
         ))}
       </div>
@@ -162,7 +240,21 @@ export default function FilmesPage() {
         >
           Anterior
         </button>
-        <span className="px-4 py-2 text-white">Página {currentPage} de {totalPages}</span>
+
+        {generatePageNumbers().map((pageNumber) => (
+          <button
+            key={pageNumber}
+            onClick={() => handlePageChange(pageNumber)}
+            className={`px-4 py-2 rounded ${
+              currentPage === pageNumber 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-600 hover:bg-blue-500'
+            }`}
+          >
+            {pageNumber}
+          </button>
+        ))}
+
         <button
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}

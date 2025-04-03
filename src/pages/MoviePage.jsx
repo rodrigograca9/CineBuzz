@@ -68,10 +68,10 @@ export default function FilmesPage() {
       let totalResults = 0;
 
       while (uniqueMoviesArray.length < MOVIES_PER_PAGE) {
-        let url = `${API_BASE_URL}/discover/movie?language=pt-PT&page=${page}`;
+        let url = `${API_BASE_URL}/discover/movie?language=en-US&page=${page}`;
 
         if (search) {
-          url = `${API_BASE_URL}/search/movie?query=${search}&language=pt-PT&page=${page}`;
+          url = `${API_BASE_URL}/search/movie?query=${search}&language=en-US&page=${page}`;
         }
 
         const filters = [];

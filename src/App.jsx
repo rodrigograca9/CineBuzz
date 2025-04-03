@@ -5,6 +5,8 @@ import MovieDetails from "./pages/Moviedetails";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
 import MoviePage from "./pages/MoviePage";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
         <div className="p-6">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/movies" element={<MoviePage />} />
             <Route path="/movie/:id" element={<MovieDetails />} />
           </Routes>
@@ -21,5 +25,5 @@ export default function App() {
         <Footer />
       </div>
     </Router>
-  );
+  );
 }

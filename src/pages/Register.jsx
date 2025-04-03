@@ -1,73 +1,108 @@
 import React, { useState } from "react";
 import supabase from "../helper/supabaseClient";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Adicionei useNavigate
 
 function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState(""); // Novo estado para definir o tipo de mensagem
+  const [messageType, setMessageType] = useState("");
+  const navigate = useNavigate(); // Hook para navegação
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage("");
-
-    // Criar usuário no Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) {
-      setMessage(error.message);
-      setMessageType("error"); // Define como erro
+    
+    // Validação de campos
+    if (password.length < 6) {
+      setMessage("A password deve ter pelo menos 6 caracteres.");
+      setMessageType("error");
       return;
     }
 
-    if (data?.user) {
-      const userId = data.user.id; // ID do usuário gerado pelo Supabase Auth
+    try {
+      // Criar usuário no Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-      // Inserir os dados na tabela "users"
-      const { error: insertError } = await supabase.from("users").insert([
-        {
-          uid: userId, // Agora esse campo está correto
-          username,
-          email,
-        },
-      ]);
-
-      if (insertError) {
-        setMessage(insertError.message);
-        setMessageType("error"); // Define como erro
+      if (error) {
+        // Mensagens de erro personalizadas baseadas no tipo de erro
+        if (error.message.includes("Email already registered")) {
+          setMessage("Este email já está registado.");
+        } else if (error.message.includes("Password should be")) {
+          setMessage("A senha não atende aos requisitos mínimos de segurança.");
+        } else if (error.message.includes("User already registered")) {
+          setMessage("Nome de utilizador ou email já em uso."); 
+        } else if (error.message.includes("Invalid email")) {
+          setMessage("Por favor, insira um endereço de email válido.");
+        } else {
+          setMessage(`Erro ao criar conta: ${error.message}`);
+        }
+        setMessageType("error");
         return;
       }
 
-      setMessage("Conta criada com sucesso!");
-      setMessageType("success"); // Define como sucesso
-    }
+      if (data?.user) {
+        const userId = data.user.id;
 
-    // Limpar os campos
-    setUsername("");
-    setEmail("");
-    setPassword("");
+        // Inserir os dados na tabela "users"
+        const { error: insertError } = await supabase.from("users").insert([
+          {
+            uid: userId,
+            username,
+            email,
+          },
+        ]);
+
+        if (insertError) {
+          // Mensagens personalizadas para erros de inserção
+          if (insertError.message.includes("duplicate key")) {
+            setMessage("Nome de utilizador já em uso.");
+          } else {
+            setMessage(`Erro ao guardar os dados: ${insertError.message}`);
+          }
+          setMessageType("error");
+          return;
+        }
+
+        setMessage("Conta criada com sucesso! A redirecionar...");
+        setMessageType("success");
+        
+        // Limpar os campos
+        setUsername("");
+        setEmail("");
+        setPassword("");
+        
+        // Redirecionar para a página de login após 1.5 segundos
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      }
+    } catch (unexpectedError) {
+      setMessage("Ocorreu um erro inesperado.");
+      setMessageType("error");
+      console.error(unexpectedError);
+    }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-6">
-      {/* Ajustei a margem para trazer a caixa um pouco mais para cima */}
       <div className="bg-gray-800 shadow-lg rounded-2xl p-8 w-full max-w-md mt-[-90px]">
         <h2 className="text-2xl font-semibold text-center text-white mb-4">Criar Conta</h2>
         
-        {/* Mensagem de erro ou sucesso com cor dinâmica */}
+        {/* Mensagem de erro ou sucesso com ícone */}
         {message && (
-          <p
-            className={`text-center text-sm mb-4 ${
-              messageType === "success" ? "text-green-400" : "text-orange-400"
-            }`}
-          >
-            {message}
-          </p>
+          <div className={`p-3 rounded-lg mb-4 flex items-center ${
+            messageType === "success" ? "bg-green-900/50 text-green-400" : "bg-orange-900/50 text-orange-400"
+          }`}>
+            <span className="mr-2">
+              {messageType === "success" ? "✓" : "⚠️"}
+            </span>
+            <p className="text-sm">{message}</p>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
@@ -94,7 +129,10 @@ function Register() {
             type="password"
             placeholder="Password"
             required
+            minLength={6}
           />
+          <div className="text-xs text-gray-400 -mt-2">A password deve conter pelo menos 6 caracteres</div>
+          
           <button
             type="submit"
             className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition"

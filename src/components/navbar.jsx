@@ -1,13 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaSearch } from "react-icons/fa"; // Ícone de pesquisa
+import supabase from "../helper/supabaseClient"; // Importar o cliente Supabase
 
 export default function Navbar() {
   const [search, setSearch] = useState(""); // Estado para pesquisa
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
+
+  // Verificar o estado de autenticação ao carregar o componente
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      
+      if (data.session) {
+        setIsLoggedIn(true);
+        // Buscar os dados do utilizador da tabela "users"
+        fetchUserData(data.session.user.id);
+      } else {
+        setIsLoggedIn(false);
+        setUserData(null);
+      }
+    };
+
+    // Configurar o listener para mudanças de autenticação
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          setIsLoggedIn(true);
+          fetchUserData(session.user.id);
+        } else if (event === "SIGNED_OUT") {
+          setIsLoggedIn(false);
+          setUserData(null);
+        }
+      }
+    );
+
+    checkAuth();
+
+    // Cleanup do listener
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, []);
+
+  // Função para buscar os dados do utilizador
+  const fetchUserData = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("username")
+        .eq("uid", userId)
+        .single();
+
+      if (error) {
+        console.error("Erro ao buscar dados do utilizador:", error);
+        return;
+      }
+
+      if (data) {
+        setUserData(data);
+      }
+    } catch (error) {
+      console.error("Erro inesperado:", error);
+    }
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -29,10 +91,22 @@ export default function Navbar() {
     }
   };
 
-  // Função simulada de logout (remover quando implementar autenticação real)
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    alert("Logout realizado!");
+  // Função para fazer logout
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Erro ao fazer logout:", error);
+        return;
+      }
+      
+      // O listener onAuthStateChange já vai atualizar o estado
+      setMenuOpen(false);
+      navigate("/");
+    } catch (error) {
+      console.error("Erro inesperado:", error);
+    }
   };
 
   return (
@@ -61,6 +135,25 @@ export default function Navbar() {
           >
             Séries
           </button>
+          
+          {/* Watchlist e Listas apenas para utilizadores autenticados */}
+          {isLoggedIn && (
+            <>
+              <button
+                onClick={() => navigate("/watchlist")}
+                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
+              >
+                Watchlist
+              </button>
+              
+              <button
+                onClick={() => navigate("/lists")}
+                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
+              >
+                Listas
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -99,38 +192,51 @@ export default function Navbar() {
         </div>
 
         {/* Renderização condicional baseada no estado de login */}
-        {isLoggedIn ? (
+        {isLoggedIn && userData ? (
           // Menu do Utilizador (mostrado apenas quando logado)
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-full hover:bg-gray-700 transition"
             >
-              <span className="bg-gray-700 w-6 h-6 rounded-full"></span> Utilizador ▼
+              <span className="bg-gray-700 w-6 h-6 rounded-full"></span>{" "}
+              {userData.username} ▼
             </button>
 
             {menuOpen && (
               <div className="absolute right-0 bg-gray-700 p-2 mt-2 w-44 rounded-lg shadow-lg transform transition-all duration-300 z-10">
                 <button
-                  onClick={() => navigate("/")}
+                  onClick={() => {
+                    navigate("/");
+                    setMenuOpen(false);
+                  }}
                   className="block w-full text-left p-2 hover:bg-gray-600 transition"
                 >
                   Início
                 </button>
                 <button
-                  onClick={() => navigate("/profile")}
+                  onClick={() => {
+                    navigate("/profile");
+                    setMenuOpen(false);
+                  }}
                   className="block w-full text-left p-2 hover:bg-gray-600 transition"
                 >
                   Perfil
                 </button>
                 <button
-                  onClick={() => navigate("/lists")}
+                  onClick={() => {
+                    navigate("/lists");
+                    setMenuOpen(false);
+                  }}
                   className="block w-full text-left p-2 hover:bg-gray-600 transition"
                 >
                   Listas
                 </button>
                 <button
-                  onClick={() => navigate("/likes")}
+                  onClick={() => {
+                    navigate("/likes");
+                    setMenuOpen(false);
+                  }}
                   className="block w-full text-left p-2 hover:bg-gray-600 transition"
                 >
                   Likes
@@ -139,7 +245,7 @@ export default function Navbar() {
                   onClick={handleLogout}
                   className="block w-full text-left p-2 hover:bg-red-600 transition"
                 >
-                  Log out
+                  Sign out
                 </button>
               </div>
             )}

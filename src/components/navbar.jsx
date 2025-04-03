@@ -111,7 +111,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-[#14181C] text-white p-4 flex justify-between items-center shadow-lg px-8">
-      {/* Logo */}
+      {/* Logo e links principais */}
       <div className="flex items-center">
         <img
           src="/logo.png"
@@ -120,7 +120,7 @@ export default function Navbar() {
           onClick={() => navigate("/")}
         />
 
-        {/* Links de Navegação com espaço à esquerda */}
+        {/* Links de Navegação principais */}
         <div className="flex gap-6">
           <button
             onClick={() => navigate("/movies")}
@@ -135,29 +135,30 @@ export default function Navbar() {
           >
             Séries
           </button>
-          
-          {/* Watchlist e Listas apenas para utilizadores autenticados */}
-          {isLoggedIn && (
-            <>
-              <button
-                onClick={() => navigate("/watchlist")}
-                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-              >
-                Watchlist
-              </button>
-              
-              <button
-                onClick={() => navigate("/lists")}
-                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-              >
-                Listas
-              </button>
-            </>
-          )}
         </div>
       </div>
 
+      {/* Área direita com pesquisa, watchlist, listas e autenticação */}
       <div className="flex gap-6 items-center">
+        {/* Watchlist e Listas (movidos para a direita) */}
+        {isLoggedIn && (
+          <>
+            <button
+              onClick={() => navigate("/watchlist")}
+              className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
+            >
+              Watchlist
+            </button>
+            
+            <button
+              onClick={() => navigate("/lists")}
+              className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
+            >
+              Listas
+            </button>
+          </>
+        )}
+
         {/* Barra de Pesquisa Expansível */}
         <div className="relative">
           {searchExpanded ? (

@@ -7,6 +7,8 @@ import Footer from "./components/footer";
 import MoviePage from "./pages/MoviePage";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import profile from "./pages/profile";
+import Profile from "./pages/profile";
 
 export default function App() {
   return (
@@ -20,6 +22,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/movies" element={<MoviePage />} />
             <Route path="/movie/:id" element={<MovieDetails />} />
+            <Route path="/profile" element={<Profile />} />
           </Routes>
         </div>
         <Footer />

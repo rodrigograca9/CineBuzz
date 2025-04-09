@@ -7,8 +7,8 @@ import Footer from "./components/footer";
 import MoviePage from "./pages/MoviePage";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
-import profile from "./pages/profile";
-import Profile from "./pages/profile";
+import Perfil from "./pages/Perfil";
+import Lists from "./pages/Lists";
 
 export default function App() {
   return (
@@ -17,12 +17,13 @@ export default function App() {
         <Navbar />
         <div className="p-6">
           <Routes>
+            <Route path="/lists" element={<Lists />} />
+            <Route path="/profile" element={<Perfil />} />
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/movies" element={<MoviePage />} />
             <Route path="/movie/:id" element={<MovieDetails />} />
-            <Route path="/profile" element={<Profile />} />
           </Routes>
         </div>
         <Footer />

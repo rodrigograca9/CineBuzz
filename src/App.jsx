@@ -9,6 +9,11 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Perfil from "./pages/Perfil";
 import Lists from "./pages/Lists";
+import UserLikes from "./pages/UserLikes";
+import UserWatchList from "./pages/UserWatchList";
+import AdminPanel from "./pages/AdminPanel";
+import AdminWrapper from "./pages/Wrapper";
+
 
 export default function App() {
   return (
@@ -16,7 +21,18 @@ export default function App() {
       <div className="bg-gray-900 min-h-screen text-white">
         <Navbar />
         <div className="p-6">
+            
           <Routes>
+            <Route 
+              path="/admin" 
+              element={
+                <AdminWrapper>
+                  <AdminPanel />
+                </AdminWrapper>
+              } 
+            />
+            <Route path="/profile/likes/:userId" element={<UserLikes />} />
+            <Route path="/profile/watchlist/:userId" element={<UserWatchList />} />
             <Route path="/lists" element={<Lists />} />
             <Route path="/profile" element={<Perfil />} />
             <Route path="/" element={<Home />} />
@@ -29,5 +45,5 @@ export default function App() {
         <Footer />
       </div>
     </Router>
-  );
+  );
 }

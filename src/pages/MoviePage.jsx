@@ -12,6 +12,7 @@ const API_OPTIONS = {
 };
 
 const MOVIES_PER_PAGE = 64;
+const MIN_RELEASE_YEAR = 2010; // Added minimum release year constant
 
 export default function FilmesPage() {
   const location = useLocation();
@@ -77,6 +78,9 @@ export default function FilmesPage() {
         const filters = [];
         if (selectedGenre) filters.push(`with_genres=${selectedGenre}`);
         if (selectedYear) filters.push(`primary_release_year=${selectedYear}`);
+        
+        // Always add the minimum release year filter
+        filters.push(`primary_release_date.gte=${MIN_RELEASE_YEAR}-01-01`);
 
         if (filters.length > 0) {
           url += `&${filters.join("&")}`;
@@ -192,6 +196,7 @@ export default function FilmesPage() {
           placeholder="Ano"
           value={selectedYear}
           onChange={handleYearChange}
+          min={MIN_RELEASE_YEAR}
           className="p-2 w-24 rounded bg-gray-800 text-white"
         />
       </form>

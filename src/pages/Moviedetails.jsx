@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import supabase from "../helper/supabaseClient"; // Importando supabase para gerenciar listas/likes
+import supabase from "../helper/supabaseClient";
+import { HiMiniSquares2X2 } from "react-icons/hi2";
+import { FaHeart, FaRegHeart, FaEye, FaStar } from "react-icons/fa";
 
 const API_BASE_URL = "https://api.themoviedb.org/3";
 const API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MzRkNDdmMDhlYmY4ZjA5OGZiNTk4Y2ViMTA1NGMzZSIsIm5iZiI6MTc0MDA2NDM5Mi42NzkwMDAxLCJzdWIiOiI2N2I3NDY4OGU0ODRmYzIxNTQxYTIzNTEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.eiEa5fYu8UkMxztHU4IgNpCjkxnbmOZVde2p8Zsm2a4';
@@ -332,6 +334,27 @@ export default function MovieDetails() {
     }
   };
 
+  // Converter avaliação de 0-10 para 0-5
+  const convertRating = (rating) => {
+    return (rating / 2).toFixed(1);
+  };
+
+  // Renderizar estrelas para a avaliação
+  const renderStars = (rating) => {
+    const ratingValue = rating / 2; // Converter para escala 0-5
+    const stars = [];
+    
+    // Renderizar estrelas preenchidas
+    for (let i = 1; i <= 5; i++) {
+      const starClass = i <= ratingValue ? "text-yellow-400" : "text-gray-500";
+      stars.push(
+        <FaStar key={i} className={`text-xl ${starClass}`} />
+      );
+    }
+    
+    return stars;
+  };
+
   if (!movie) return (
     <div className="flex items-center justify-center min-h-screen bg-[#14181C] text-white">
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -367,16 +390,21 @@ export default function MovieDetails() {
 
           {/* Duração, Gênero, Elenco e Data */}
           <div className="mt-6 flex flex-wrap gap-4">
-            <p className="text-gray-400">🕒 Duração: {movie.runtime} minutos</p>
-            <p className="text-gray-400">🎬 Género: {getGenres(movie.genres)}</p>
-            <p className="text-gray-400">👨‍👩‍👧‍👦 Elenco: {getCast(cast)}</p>
-            <p className="text-gray-400">📅 Lançamento: {movie.release_date}</p>
+            <p className="text-gray-400">Duração: {movie.runtime} minutos</p>
+            <p className="text-gray-400">Género: {getGenres(movie.genres)}</p>
+            <p className="text-gray-400">Elenco: {getCast(cast)}</p>
+            <p className="text-gray-400">Lançamento: {movie.release_date}</p>
           </div>
 
           {/* Avaliação e Interações */}
-          <div className="mt-6 flex items-center flex-wrap gap-4">
-            <p className="text-yellow-400 text-3xl font-semibold">⭐ {movie.vote_average.toFixed(1)}/10</p>
-            <p className="text-gray-400">📊 {movie.vote_count} avaliações</p>
+          <div className="mt-6 flex flex-col gap-2">
+            <div className="flex items-center">
+              {renderStars(movie.vote_average)}
+              <span className="ml-2 text-xl font-semibold">
+                {convertRating(movie.vote_average)}
+              </span>
+            </div>
+            <p className="text-gray-400">{movie.vote_count} avaliações</p>
           </div>
           
           {/* Botões de interação do usuário */}
@@ -386,12 +414,16 @@ export default function MovieDetails() {
               disabled={loading}
               className={`px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-2 ${
                 isLiked 
-                  ? "bg-red-600 hover:bg-red-700" 
+                  ? "bg-[#e66f25] hover:bg-[#cc6321]" 
                   : "bg-gray-700 hover:bg-gray-600"
               }`}
             >
-              <span className="text-xl">{isLiked ? "❤️" : "🤍"}</span>
-              <span>{isLiked ? "Curtido" : "Curtir"}</span>
+              {isLiked ? (
+                <FaHeart className="text-xl" />
+              ) : (
+                <FaRegHeart className="text-xl" />
+              )}
+              <span>{isLiked ? "Liked" : "Like"}</span>
             </button>
             
             <button 
@@ -403,16 +435,16 @@ export default function MovieDetails() {
                   : "bg-gray-700 hover:bg-gray-600"
               }`}
             >
-              <span className="text-xl">{inWatchlist ? "✓" : "+"}</span>
+              <FaEye className="text-xl" />
               <span>{inWatchlist ? "Na Watchlist" : "Adicionar à Watchlist"}</span>
             </button>
             
             <button 
               onClick={handleAddToList}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-2"
+              className="bg-[#4ea4cf] hover:bg-[#4593bb] px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-2"
             >
-              <span className="text-xl">📋</span>
+              <HiMiniSquares2X2 className="text-xl" />
               <span>Adicionar a uma lista</span>
             </button>
           </div>
@@ -524,7 +556,7 @@ export default function MovieDetails() {
                 <button 
                   onClick={saveListChanges}
                   disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md transition-colors"
+                  className="bg-[#4ea4cf] hover:bg-[#4593bb] px-4 py-2 rounded-md transition-colors"
                 >
                   Salvar
                 </button>

@@ -54,7 +54,7 @@ export default function Navbar() {
     try {
       const { data, error } = await supabase
         .from("users")
-        .select("username")
+        .select("username, is_admin, uid") // Adicionado uid aqui
         .eq("uid", userId)
         .single();
 
@@ -64,7 +64,11 @@ export default function Navbar() {
       }
 
       if (data) {
-        setUserData(data);
+        // Garantir que o uid está disponível
+        setUserData({
+          ...data,
+          uid: userId // Adicionar o uid mesmo se não vier da consulta
+        });
       }
     } catch (error) {
       console.error("Erro inesperado:", error);
@@ -107,6 +111,20 @@ export default function Navbar() {
     } catch (error) {
       console.error("Erro inesperado:", error);
     }
+  };
+
+  // Função para navegar para a página de admin com verificação
+  const navigateToAdmin = () => {
+    // Se o usuário não for admin, redirecionar para homepage ou mostrar mensagem de erro
+    if (!userData?.is_admin) {
+      navigate("/");
+      // Opcional: mostrar uma mensagem de acesso negado
+      alert("Acesso negado: Apenas administradores podem acessar o painel admin.");
+      return;
+    }
+    
+    navigate("/admin");
+    setMenuOpen(false);
   };
 
   return (
@@ -234,7 +252,7 @@ export default function Navbar() {
                 </button>
                 <button
                   onClick={() => {
-                    navigate("/likes");
+                    navigate(`/profile/likes/${userData.uid}`);
                     setMenuOpen(false);
                   }}
                   className="block w-full text-left p-2 hover:bg-gray-600 transition"
@@ -247,6 +265,16 @@ export default function Navbar() {
                 >
                   Sign out
                 </button>
+                
+                {/* Botão do painel admin apenas visível para admins */}
+                {userData.is_admin && (
+                  <button
+                    onClick={navigateToAdmin}
+                    className="block w-full text-left p-2 hover:bg-gray-600 transition"
+                  >
+                    Painel admin
+                  </button>
+                )}
               </div>
             )}
           </div>

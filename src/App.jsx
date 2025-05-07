@@ -8,12 +8,12 @@ import MoviePage from "./pages/MoviePage";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Perfil from "./pages/Perfil";
-import Lists from "./pages/Lists";
+import UserLists from "./pages/UserList";
 import UserLikes from "./pages/UserLikes";
 import UserWatchList from "./pages/UserWatchList";
 import AdminPanel from "./pages/AdminPanel";
 import AdminWrapper from "./pages/Wrapper";
-
+import ListDetail from "./pages/ListDetails";
 
 export default function App() {
   return (
@@ -31,9 +31,10 @@ export default function App() {
                 </AdminWrapper>
               } 
             />
+            <Route path="/list/:listId" element={<ListDetail />} />
             <Route path="/profile/likes/:userId" element={<UserLikes />} />
+            <Route path="/profile/lists/:userId" element={<UserLists />} />
             <Route path="/profile/watchlist/:userId" element={<UserWatchList />} />
-            <Route path="/lists" element={<Lists />} />
             <Route path="/profile" element={<Perfil />} />
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />

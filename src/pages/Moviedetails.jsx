@@ -32,6 +32,15 @@ export default function MovieDetails() {
   const [selectedLists, setSelectedLists] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [userAvatar, setUserAvatar] = useState("");
+
+  // Estados para comentários
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentPage, setCommentPage] = useState(1);
+  const [totalCommentPages, setTotalCommentPages] = useState(1);
+  const commentsPerPage = 4;
 
   // Buscar dados do filme da API TMDB
   useEffect(() => {
@@ -86,7 +95,7 @@ export default function MovieDetails() {
         // Buscar dados do usuário
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("likes, watchlist, lists")
+          .select("likes, watchlist, lists, username, profile_image_url")
           .eq("uid", currentUserId)
           .single();
         
@@ -98,6 +107,10 @@ export default function MovieDetails() {
           // Verificar se o filme está na watchlist
           const watchlist = userData.watchlist || [];
           setInWatchlist(watchlist.includes(id));
+          
+          // Guardar nome e avatar do usuário
+          setUserName(userData.username || "Usuário");
+          setUserAvatar(userData.profile_image_url || "https://via.placeholder.com/40");
           
           // Buscar listas do usuário
           const { data: listsData, error: listsError } = await supabase
@@ -126,6 +139,144 @@ export default function MovieDetails() {
     fetchUserData();
   }, [id]);
 
+  // Buscar comentários para este filme
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        // Buscar todos os comentários para este filme
+        const { data, error } = await supabase
+  .from("movie_comments")
+  .select(`
+    id, 
+    comment, 
+    created_at,
+    user_id,
+    users:user_id (
+      uid,
+      username,
+      profile_image_url
+    )
+  `)
+  .eq("movie_id", id)
+  .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        
+        // Calcular o número total de páginas
+        const totalPages = Math.ceil(data.length / commentsPerPage);
+        setTotalCommentPages(totalPages || 1);
+        
+        // Formatar comentários para exibição
+        const formattedComments = data.map(item => ({
+          id: item.id,
+          userId: item.users.uid,
+          userName: item.users.username || "Usuário",
+          userAvatar: item.users.profile_image_url || "https://via.placeholder.com/40",
+          text: item.comment,
+          date: new Date(item.created_at).toLocaleDateString()
+        }));
+        
+        setComments(formattedComments);
+      } catch (error) {
+        console.error("Erro ao buscar comentários:", error);
+      }
+    };
+    
+    fetchComments();
+  }, [id]);
+
+  // Manipulador para enviar um novo comentário
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    
+    if (!userId) {
+      alert("Você precisa estar logado para comentar.");
+      navigate("/login");
+      return;
+    }
+    
+    if (!newComment.trim()) return;
+    
+    try {
+      setLoading(true);
+      
+      // Inserir comentário no banco de dados
+      const { data, error } = await supabase
+        .from("movie_comments")
+        .insert({
+          movie_id: id,
+          user_id: userId,
+          comment: newComment,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      // Adicionar comentário à lista local
+      const newCommentObj = {
+        id: data.id,
+        userId,
+        userName,
+        userAvatar,
+        text: newComment,
+        date: new Date().toLocaleDateString()
+      };
+      
+      setComments([newCommentObj, ...comments]);
+      setNewComment("");
+      
+      // Atualizar número total de páginas
+      const totalPages = Math.ceil((comments.length + 1) / commentsPerPage);
+      setTotalCommentPages(totalPages);
+      setCommentPage(1); // Voltar para a primeira página para ver o novo comentário
+      
+    } catch (error) {
+      console.error("Erro ao enviar comentário:", error);
+      alert("Erro ao enviar comentário. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manipulador para excluir um comentário
+  const handleDeleteComment = async (commentId) => {
+    if (!userId) return;
+    
+    try {
+      setLoading(true);
+      
+      // Excluir comentário do banco de dados
+      const { error } = await supabase
+        .from("movie_comments")
+        .delete()
+        .eq("id", commentId)
+        .eq("user_id", userId); // Garantir que o usuário só exclua seus próprios comentários
+        
+      if (error) throw error;
+      
+      // Remover comentário da lista local
+      const updatedComments = comments.filter(comment => comment.id !== commentId);
+      setComments(updatedComments);
+      
+      // Atualizar número total de páginas
+      const totalPages = Math.ceil(updatedComments.length / commentsPerPage);
+      setTotalCommentPages(totalPages || 1);
+      
+      // Ajustar página atual se necessário
+      if (commentPage > totalPages) {
+        setCommentPage(Math.max(1, totalPages));
+      }
+      
+    } catch (error) {
+      console.error("Erro ao excluir comentário:", error);
+      alert("Erro ao excluir comentário. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Manipulador para toggle de like
   const handleLike = async () => {
     if (!userId) {
@@ -355,6 +506,13 @@ export default function MovieDetails() {
     return stars;
   };
 
+  // Obter comentários para a página atual
+  const getCurrentPageComments = () => {
+    const startIndex = (commentPage - 1) * commentsPerPage;
+    const endIndex = startIndex + commentsPerPage;
+    return comments.slice(startIndex, endIndex);
+  };
+
   if (!movie) return (
     <div className="flex items-center justify-center min-h-screen bg-[#14181C] text-white">
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -511,6 +669,126 @@ export default function MovieDetails() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Seção de Comentários */}
+      <div className="mt-10 border-t border-gray-700 pt-6">
+        <h2 className="text-2xl font-bold text-white mb-6">Comentários</h2>
+
+        {/* Formulário para adicionar comentário */}
+        <form onSubmit={handleSubmitComment} className="mb-8">
+          <div className="flex gap-4">
+            <div className="w-10 h-10 flex-shrink-0">
+              {userId ? (
+                <img
+                  src={userAvatar || "https://via.placeholder.com/40"}
+                  alt="Avatar"
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
+                  <span className="text-gray-400 text-xs">?</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-grow">
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder={userId ? "Deixe seu comentário..." : "Faça login para comentar..."}
+                disabled={!userId || loading}
+                className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white resize-none"
+                rows="3"
+              ></textarea>
+              <div className="flex justify-end mt-2">
+                <button
+                  type="submit"
+                  disabled={!userId || !newComment.trim() || loading}
+                  className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Comentar
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        {/* Lista de comentários */}
+        <div className="space-y-6">
+          {getCurrentPageComments().length > 0 ? (
+            getCurrentPageComments().map((comment) => (
+              <div key={comment.id} className="bg-gray-800 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <img
+                    src={comment.userAvatar}
+                    alt={comment.userName}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div className="flex-grow">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-semibold text-blue-400">{comment.userName}</h4>
+                      <span className="text-gray-500 text-sm">{comment.date}</span>
+                    </div>
+                    <p className="mt-2 text-gray-300">{comment.text}</p>
+                    
+                    {/* Botão de excluir (apenas visível para o autor) */}
+                    {userId === comment.userId && (
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="text-red-400 hover:text-red-500 text-sm transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              Ainda não há comentários para este filme. Seja o primeiro a comentar!
+            </div>
+          )}
+        </div>
+
+        {/* Paginação de comentários */}
+        {comments.length > commentsPerPage && (
+          <div className="mt-6 flex justify-center">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCommentPage(p => Math.max(1, p - 1))}
+                disabled={commentPage === 1}
+                className="px-3 py-1 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                &lt; Anterior
+              </button>
+              
+              {/* Exibir números de página */}
+              {Array.from({ length: totalCommentPages }, (_, i) => i + 1).map(pageNum => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCommentPage(pageNum)}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    pageNum === commentPage
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-700 hover:bg-gray-600"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              <button
+                onClick={() => setCommentPage(p => Math.min(totalCommentPages, p + 1))}
+                disabled={commentPage === totalCommentPages}
+                className="px-3 py-1 bg-gray-700 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Próximo &gt;
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Diálogo para adicionar a listas */}

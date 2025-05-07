@@ -201,11 +201,15 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
         
         // Upload da nova imagem
         const fileExt = profileImage.name.split('.').pop();
+        const safeUid = userData.uid.replace(/[^a-zA-Z0-9-_]/g, ""); 
         const fileName = `${userData.uid}-${Date.now()}.${fileExt}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('profileimages')
-          .upload(fileName, profileImage);
+          .upload(fileName, profileImage,
+            {contentType: profileImage.type
+            }
+          );
           
         if (uploadError) {
           throw new Error("Erro ao fazer upload da imagem: " + uploadError.message);

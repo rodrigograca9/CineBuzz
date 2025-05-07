@@ -1,24 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaSearch } from "react-icons/fa"; // Ícone de pesquisa
-import supabase from "../helper/supabaseClient"; // Importar o cliente Supabase
+import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
+import supabase from "../helper/supabaseClient";
 
 export default function Navbar() {
-  const [search, setSearch] = useState(""); // Estado para pesquisa
+  const [search, setSearch] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
-  // Verificar o estado de autenticação ao carregar o componente
   useEffect(() => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession();
-      
       if (data.session) {
         setIsLoggedIn(true);
-        // Buscar os dados do utilizador da tabela "users"
         fetchUserData(data.session.user.id);
       } else {
         setIsLoggedIn(false);
@@ -26,7 +24,6 @@ export default function Navbar() {
       }
     };
 
-    // Configurar o listener para mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session) {
@@ -41,20 +38,46 @@ export default function Navbar() {
 
     checkAuth();
 
-    // Cleanup do listener
     return () => {
-      if (authListener && authListener.subscription) {
+      if (authListener?.subscription) {
         authListener.subscription.unsubscribe();
       }
     };
   }, []);
 
-  // Função para buscar os dados do utilizador
+  useEffect(() => {
+    if (!userData?.uid) return;
+
+    const userChannel = supabase
+      .channel(`public:users:uid=eq.${userData.uid}`)
+      .on('postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `uid=eq.${userData.uid}`
+        },
+        (payload) => {
+          setUserData(current => ({ ...current, ...payload.new }));
+        }
+      )
+      .subscribe();
+
+    const refreshInterval = setInterval(() => {
+      fetchUserData(userData.uid);
+    }, 60000);
+
+    return () => {
+      supabase.removeChannel(userChannel);
+      clearInterval(refreshInterval);
+    };
+  }, [userData?.uid]);
+
   const fetchUserData = async (userId) => {
     try {
       const { data, error } = await supabase
         .from("users")
-        .select("username, is_admin, uid") // Adicionado uid aqui
+        .select("username, is_admin, uid, profile_image_url")
         .eq("uid", userId)
         .single();
 
@@ -64,11 +87,7 @@ export default function Navbar() {
       }
 
       if (data) {
-        // Garantir que o uid está disponível
-        setUserData({
-          ...data,
-          uid: userId // Adicionar o uid mesmo se não vier da consulta
-        });
+        setUserData({ ...data, uid: userId });
       }
     } catch (error) {
       console.error("Erro inesperado:", error);
@@ -78,223 +97,176 @@ export default function Navbar() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (search.trim()) {
-      navigate(`/search?q=${search}`); // Redireciona para a página de pesquisa
+      navigate(`/search?q=${search}`);
+      setSearch("");
+      setSearchExpanded(false);
     }
   };
 
   const toggleSearch = () => {
     setSearchExpanded(!searchExpanded);
     if (!searchExpanded) {
-      // Focar no input quando expandir
       setTimeout(() => {
         document.getElementById("search-input")?.focus();
       }, 100);
     } else {
-      // Limpar busca ao fechar
       setSearch("");
     }
   };
 
-  // Função para fazer logout
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      
       if (error) {
         console.error("Erro ao fazer logout:", error);
         return;
       }
-      
-      // O listener onAuthStateChange já vai atualizar o estado
       setMenuOpen(false);
+      setMobileMenuOpen(false);
       navigate("/");
     } catch (error) {
       console.error("Erro inesperado:", error);
     }
   };
 
-  // Função para navegar para a página de admin com verificação
   const navigateToAdmin = () => {
-    // Se o usuário não for admin, redirecionar para homepage ou mostrar mensagem de erro
     if (!userData?.is_admin) {
+      alert("Acesso negado: Apenas administradores.");
       navigate("/");
-      // Opcional: mostrar uma mensagem de acesso negado
-      alert("Acesso negado: Apenas administradores podem acessar o painel admin.");
       return;
     }
-    
     navigate("/admin");
     setMenuOpen(false);
   };
 
   return (
-    <nav className="bg-[#14181C] text-white p-4 flex justify-between items-center shadow-lg px-8">
+    <nav className="bg-[#14181C] text-white p-4 flex items-center justify-between shadow-lg px-4 md:px-8 relative z-20">
       {/* Logo */}
-      <div className="flex items-center">
-        <img
-          src="/logo.png"
-          alt="Logo do CineBuzz"
-          className="h-12 cursor-pointer transform transition duration-300 hover:scale-105 mr-8"
-          onClick={() => navigate("/")}
-        />
+      <img
+        src="/logo.png"
+        alt="Logo"
+        className="h-10 cursor-pointer"
+        onClick={() => navigate("/")}
+      />
 
-        {/* Links de Navegação com espaço à esquerda */}
-        <div className="flex gap-6">
-          <button
-            onClick={() => navigate("/movies")}
-            className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-          >
-            Filmes
-          </button>
+      {/* Desktop Menu */}
+      <div className="hidden md:flex items-center gap-6">
+        <button onClick={() => navigate("/movies")} className="hover:text-[#1D4ED8]">Filmes</button>
 
-          <button
-            onClick={() => navigate("/series")}
-            className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-          >
-            Séries
-          </button>
-          
-          {/* Watchlist e Listas apenas para utilizadores autenticados */}
-          {isLoggedIn && (
-            <>
-              <button
-                onClick={() => navigate("/watchlist")}
-                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-              >
-                Watchlist
-              </button>
-              
-              <button
-                onClick={() => navigate("/lists")}
-                className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-              >
-                Listas
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+        {isLoggedIn && (
+          <>
+            <button onClick={() => navigate(`/profile/watchlist/${userData.uid}`)} className="hover:text-[#1D4ED8]">Watchlist</button>
+            <button onClick={() => navigate(`/profile/lists/${userData.uid}`)} className="hover:text-[#1D4ED8]">Listas</button>
+          </>
+        )}
 
-      <div className="flex gap-6 items-center">
-        {/* Barra de Pesquisa Expansível */}
+        {/* Search */}
         <div className="relative">
           {searchExpanded ? (
-            <form
-              onSubmit={handleSearch}
-              className="flex items-center bg-gray-700 rounded-full overflow-hidden"
-            >
+            <form onSubmit={handleSearch} className="flex items-center bg-gray-700 rounded-full overflow-hidden">
               <input
                 id="search-input"
                 type="text"
-                placeholder="Pesquisar..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="p-2 pl-4 pr-10 bg-gray-700 text-white outline-none w-48 transition-all duration-300 rounded-full"
+                placeholder="Pesquisar..."
+                className="p-2 pl-4 pr-10 bg-gray-700 text-white outline-none w-48"
               />
-              <button
-                type="button"
-                onClick={toggleSearch}
-                className="absolute right-3 text-gray-400 hover:text-white transition"
-              >
+              <button type="button" onClick={toggleSearch} className="absolute right-3 text-gray-400 hover:text-white">
                 <FaSearch />
               </button>
             </form>
           ) : (
-            <button
-              onClick={toggleSearch}
-              className="p-2 text-gray-400 hover:text-white transition"
-            >
-              <FaSearch size={18} />
+            <button onClick={toggleSearch} className="text-gray-400 hover:text-white">
+              <FaSearch />
             </button>
           )}
         </div>
 
-        {/* Renderização condicional baseada no estado de login */}
         {isLoggedIn && userData ? (
-          // Menu do Utilizador (mostrado apenas quando logado)
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-full hover:bg-gray-700 transition"
+              className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-full hover:bg-gray-700"
             >
-              <span className="bg-gray-700 w-6 h-6 rounded-full"></span>{" "}
+              {userData.profile_image_url ? (
+                <img src={userData.profile_image_url} alt="Perfil" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <div className="bg-gray-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                  {userData.username?.charAt(0).toUpperCase()}
+                </div>
+              )}
               {userData.username} ▼
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 bg-gray-700 p-2 mt-2 w-44 rounded-lg shadow-lg transform transition-all duration-300 z-10">
-                <button
-                  onClick={() => {
-                    navigate("/");
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full text-left p-2 hover:bg-gray-600 transition"
-                >
-                  Início
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/profile");
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full text-left p-2 hover:bg-gray-600 transition"
-                >
-                  Perfil
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/lists");
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full text-left p-2 hover:bg-gray-600 transition"
-                >
-                  Listas
-                </button>
-                <button
-                  onClick={() => {
-                    navigate(`/profile/likes/${userData.uid}`);
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full text-left p-2 hover:bg-gray-600 transition"
-                >
-                  Likes
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left p-2 hover:bg-red-600 transition"
-                >
-                  Sign out
-                </button>
-                
-                {/* Botão do painel admin apenas visível para admins */}
+              <div className="absolute right-0 bg-gray-700 p-2 mt-2 w-44 rounded-lg shadow-lg z-50">
+                <button onClick={() => navigate("/")} className="block w-full p-2 hover:bg-gray-600">Início</button>
+                <button onClick={() => navigate("/profile")} className="block w-full p-2 hover:bg-gray-600">Perfil</button>
+                <button onClick={() => navigate(`/profile/lists/${userData.uid}`)} className="block w-full p-2 hover:bg-gray-600">Listas</button>
+                <button onClick={() => navigate(`/profile/likes/${userData.uid}`)} className="block w-full p-2 hover:bg-gray-600">Likes</button>
+                <button onClick={handleLogout} className="block w-full p-2 hover:bg-red-600">Sign out</button>
                 {userData.is_admin && (
-                  <button
-                    onClick={navigateToAdmin}
-                    className="block w-full text-left p-2 hover:bg-gray-600 transition"
-                  >
-                    Painel admin
-                  </button>
+                  <button onClick={navigateToAdmin} className="block w-full p-2 hover:bg-gray-600">Painel admin</button>
                 )}
               </div>
             )}
           </div>
         ) : (
           <>
-            <button
-              onClick={() => navigate("/login")}
-              className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => navigate("/register")}
-              className="text-lg font-medium hover:text-[#1D4ED8] transition duration-300"
-            >
-              Sign Up
-            </button>
+            <button onClick={() => navigate("/login")} className="hover:text-[#1D4ED8]">Login</button>
+            <button onClick={() => navigate("/register")} className="hover:text-[#1D4ED8]">Sign Up</button>
           </>
         )}
       </div>
+
+      {/* Mobile Menu Button */}
+      <div className="md:hidden">
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          {mobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+        </button>
+      </div>
+
+      {/* Mobile Dropdown */}
+      {mobileMenuOpen && (
+        <div className="absolute top-full left-0 w-full bg-[#1F2937] flex flex-col items-start p-4 gap-3 md:hidden shadow-lg z-10">
+          <button onClick={() => { navigate("/movies"); setMobileMenuOpen(false); }}>Filmes</button>
+
+          {isLoggedIn && (
+            <>
+              <button onClick={() => { navigate(`/profile/watchlist/${userData.uid}`); setMobileMenuOpen(false); }}>Watchlist</button>
+              <button onClick={() => { navigate(`/profile/lists/${userData.uid}`); setMobileMenuOpen(false); }}>Listas</button>
+            </>
+          )}
+
+          {/* Search on Mobile */}
+          <form onSubmit={handleSearch} className="w-full">
+            <input
+              type="text"
+              placeholder="Pesquisar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full p-2 rounded bg-gray-600 text-white"
+            />
+          </form>
+
+          {isLoggedIn && userData ? (
+            <>
+              <button onClick={() => { navigate("/profile"); setMobileMenuOpen(false); }}>Perfil</button>
+              <button onClick={() => { navigate(`/profile/likes/${userData.uid}`); setMobileMenuOpen(false); }}>Likes</button>
+              {userData.is_admin && (
+                <button onClick={() => { navigateToAdmin(); setMobileMenuOpen(false); }}>Painel admin</button>
+              )}
+              <button onClick={handleLogout} className="text-red-400">Sign out</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}>Login</button>
+              <button onClick={() => { navigate("/register"); setMobileMenuOpen(false); }}>Sign Up</button>
+            </>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

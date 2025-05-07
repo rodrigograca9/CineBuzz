@@ -95,7 +95,7 @@ export default function HomePage() {
                 Ver Detalhes
               </Link>
               <Link 
-                to="/filmes"
+                to="/Movies"
                 className="border border-white px-6 py-3 rounded-full hover:bg-white hover:text-black transition font-semibold"
               >
                 Explorar Filmes

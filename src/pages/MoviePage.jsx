@@ -12,7 +12,7 @@ const API_OPTIONS = {
 };
 
 const MOVIES_PER_PAGE = 64;
-const MIN_RELEASE_YEAR = 2010; // Added minimum release year constant
+const MIN_RELEASE_YEAR = 2014; // Added minimum release year constant
 
 export default function FilmesPage() {
   const location = useLocation();
@@ -33,6 +33,9 @@ export default function FilmesPage() {
   // Ref para manter os IDs dos filmes já carregados em todas as páginas
   const loadedMovieIdsRef = useRef(new Set());
   const movieGridRef = useRef(null);
+  
+  // ID do gênero Drama para exclusão
+  const DRAMA_GENRE_ID = 18;
 
   // Restore filter states if available in location state
   useEffect(() => {
@@ -69,10 +72,12 @@ export default function FilmesPage() {
       let totalResults = 0;
 
       while (uniqueMoviesArray.length < MOVIES_PER_PAGE) {
-        let url = `${API_BASE_URL}/discover/movie?language=en-US&page=${page}`;
-
+        let url;
+        
         if (search) {
           url = `${API_BASE_URL}/search/movie?query=${search}&language=en-US&page=${page}`;
+        } else {
+          url = `${API_BASE_URL}/discover/movie?language=en-US&page=${page}&sort_by=popularity.desc&without_genres=${DRAMA_GENRE_ID}`;
         }
 
         const filters = [];
@@ -81,6 +86,11 @@ export default function FilmesPage() {
         
         // Always add the minimum release year filter
         filters.push(`primary_release_date.gte=${MIN_RELEASE_YEAR}-01-01`);
+        
+        // Adicionar exclusão de Drama apenas quando não estiver pesquisando e não tiver gênero específico selecionado
+        if (!search && !selectedGenre && !url.includes('without_genres')) {
+          filters.push(`without_genres=${DRAMA_GENRE_ID}`);
+        }
 
         if (filters.length > 0) {
           url += `&${filters.join("&")}`;
@@ -211,7 +221,7 @@ export default function FilmesPage() {
         <p className="text-center text-gray-400">Nenhum filme encontrado.</p>
       )}
 
-      <div className="grid grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
         {movies.map((movie) => (
           <Link
             to={`/movie/${movie.id}`}

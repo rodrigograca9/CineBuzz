@@ -71,6 +71,8 @@ const ListCard = ({ list, username, onNavigate }) => {
     setExpanded(!expanded);
   };
 
+  const movieCount = list.movie_ids ? list.movie_ids.length : 0;
+
   return (
     <div className="bg-[#14181C] rounded-lg p-4 mb-4 hover:bg-[#1a2026] transition-colors">
       <div className="flex justify-between items-center cursor-pointer" onClick={toggleExpand}>
@@ -78,7 +80,7 @@ const ListCard = ({ list, username, onNavigate }) => {
           <h3 className="font-medium text-white text-lg">{list.name}</h3>
           <p className="text-gray-400 text-sm">
             Por <span className="text-blue-400">{username}</span> • 
-            {list.movie_ids ? ` ${list.movie_ids.length} filmes` : ' 0 filmes'}
+            {movieCount} {movieCount === 1 ? 'filme' : 'filmes'}
           </p>
         </div>
         <span className="text-blue-400">{expanded ? "▲" : "▼"}</span>
@@ -140,7 +142,20 @@ export default function Lists() {
         });
         
         setUsers(userMap);
-        setAllLists(listsData || []);
+
+        // Parse movie_ids if it is a string
+        const parsedListsData = (listsData || []).map(list => {
+          if (list.movie_ids && typeof list.movie_ids === "string") {
+            try {
+              return { ...list, movie_ids: JSON.parse(list.movie_ids) };
+            } catch {
+              return { ...list, movie_ids: [] };
+            }
+          }
+          return list;
+        });
+
+        setAllLists(parsedListsData);
         
       } catch (err) {
         console.error(err);

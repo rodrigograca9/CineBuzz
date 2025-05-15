@@ -121,22 +121,33 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, listName }) => {
 };
 
 // Modal de edição de perfil
+// Modal de edição de perfil com campos para senha e email
 const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
   const [username, setUsername] = useState(userData?.username || "");
+  const [email, setEmail] = useState(userData?.email || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
   const [isLoading, setIsLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(userData?.profile_image_url || null);
+  const [activeTab, setActiveTab] = useState("profile"); // "profile" ou "security"
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     // Resetar estados quando o modal abre
     if (isOpen) {
       setUsername(userData?.username || "");
+      setEmail(userData?.email || "");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
       setMessage("");
       setPreviewUrl(userData?.profile_image_url || null);
       setProfileImage(null);
+      setActiveTab("profile");
     }
   }, [isOpen, userData]);
 
@@ -173,7 +184,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
     }
   };
 
-  const handleSubmit = async (event) => {
+  const handleProfileSubmit = async (event) => {
     event.preventDefault();
     setIsLoading(true);
     setMessage("");
@@ -201,15 +212,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
         
         // Upload da nova imagem
         const fileExt = profileImage.name.split('.').pop();
-        const safeUid = userData.uid.replace(/[^a-zA-Z0-9-_]/g, ""); 
         const fileName = `${userData.uid}-${Date.now()}.${fileExt}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('profileimages')
-          .upload(fileName, profileImage,
-            {contentType: profileImage.type
-            }
-          );
+          .upload(fileName, profileImage);
           
         if (uploadError) {
           throw new Error("Erro ao fazer upload da imagem: " + uploadError.message);
@@ -223,17 +230,30 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
         profile_image_url = urlData.publicUrl;
       }
 
-      // Atualizar informações do usuário
-      const { error } = await supabase
+      // Atualizar informações do usuário (incluindo e-mail)
+      const { error: profileError } = await supabase
         .from("users")
         .update({ 
           username: username,
+          email: email,
           profile_image_url: profile_image_url
         })
         .eq("uid", userData.uid);
 
-      if (error) {
-        setMessage("Erro ao atualizar perfil: " + error.message);
+      if (profileError) {
+        setMessage("Erro ao atualizar perfil: " + profileError.message);
+        setMessageType("error");
+        setIsLoading(false);
+        return;
+      }
+
+      // Atualizar e-mail na autenticação do Supabase
+      const { error: authError } = await supabase.auth.updateUser({
+        email: email
+      });
+
+      if (authError) {
+        setMessage("Erro ao atualizar e-mail: " + authError.message);
         setMessageType("error");
         setIsLoading(false);
         return;
@@ -246,12 +266,64 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
         onProfileUpdate({
           ...userData,
           username,
+          email,
           profile_image_url
         });
         onClose();
       }, 1500);
     } catch (error) {
       setMessage("Ocorreu um erro inesperado: " + error.message);
+      setMessageType("error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSecuritySubmit = async (event) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setMessage("");
+
+    // Validação de senha
+    if (newPassword !== confirmPassword) {
+      setMessage("As passwords não coincidem");
+      setMessageType("error");
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setMessage("A passsword deve ter pelo menos 6 caracteres");
+      setMessageType("error");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Atualizar senha usando a API de autenticação do Supabase
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw new Error("Erro ao atualizar password: " + error.message);
+      }
+
+      // Limpar campos de senha
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      // Mostrar mensagem de sucesso
+      setMessage("Password atualizada com sucesso!");
+      setMessageType("success");
+      
+      // Fechar modal após algum tempo
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (error) {
+      setMessage(error.message);
       setMessageType("error");
     } finally {
       setIsLoading(false);
@@ -272,7 +344,27 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
           </svg>
         </button>
         
-        <h2 className="text-2xl font-semibold text-center text-white mb-4">Editar Perfil</h2>
+        <h2 className="text-2xl font-semibold text-center text-white mb-6">Editar Perfil</h2>
+        
+        {/* Abas de navegação */}
+        <div className="flex border-b border-gray-700 mb-6">
+          <button
+            className={`flex-1 py-2 text-center ${activeTab === 'profile' 
+              ? 'text-blue-400 border-b-2 border-blue-400 font-medium' 
+              : 'text-gray-400 hover:text-gray-300'}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            Perfil
+          </button>
+          <button
+            className={`flex-1 py-2 text-center ${activeTab === 'security' 
+              ? 'text-blue-400 border-b-2 border-blue-400 font-medium' 
+              : 'text-gray-400 hover:text-gray-300'}`}
+            onClick={() => setActiveTab('security')}
+          >
+            Alterar Password
+          </button>
+        </div>
         
         {/* Mensagem de erro ou sucesso */}
         {message && (
@@ -286,89 +378,160 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-          {/* Preview do avatar e opções de imagem */}
-          <div className="flex flex-col items-center mb-4">
-            <div className="relative">
-              {previewUrl ? (
-                <img 
-                  src={previewUrl} 
-                  alt="Imagem de perfil" 
-                  className="w-24 h-24 rounded-full object-cover border-2 border-blue-400"
-                />
-              ) : (
-                <div 
-                  className="w-24 h-24 bg-[#2c387e] rounded-full flex items-center justify-center text-3xl font-bold border-2 border-blue-400"
-                >
-                  <span className="text-white">{username.charAt(0).toUpperCase() || userData?.username?.charAt(0).toUpperCase() || "U"}</span>
-                </div>
-              )}
-              
-              {/* Botões de ação de imagem */}
-              <div className="absolute -bottom-2 -right-2 flex space-x-1">
-                <button 
-                  type="button"
-                  onClick={() => fileInputRef.current.click()}
-                  className="bg-blue-500 p-1 rounded-full hover:bg-blue-600"
-                  title="Carregar imagem"
-                >
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                  </svg>
-                </button>
+        {/* Aba de Perfil */}
+        {activeTab === 'profile' && (
+          <form onSubmit={handleProfileSubmit} className="flex flex-col space-y-4">
+            {/* Preview do avatar e opções de imagem */}
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative">
+                {previewUrl ? (
+                  <img 
+                    src={previewUrl} 
+                    alt="Imagem de perfil" 
+                    className="w-24 h-24 rounded-full object-cover border-2 border-blue-400"
+                  />
+                ) : (
+                  <div 
+                    className="w-24 h-24 bg-[#2c387e] rounded-full flex items-center justify-center text-3xl font-bold border-2 border-blue-400"
+                  >
+                    <span className="text-white">{username.charAt(0).toUpperCase() || userData?.username?.charAt(0).toUpperCase() || "U"}</span>
+                  </div>
+                )}
                 
-                {previewUrl && (
+                {/* Botões de ação de imagem */}
+                <div className="absolute -bottom-2 -right-2 flex space-x-1">
                   <button 
                     type="button"
-                    onClick={handleRemoveImage}
-                    className="bg-red-500 p-1 rounded-full hover:bg-red-600"
-                    title="Remover imagem"
+                    onClick={() => fileInputRef.current.click()}
+                    className="bg-blue-500 p-1 rounded-full hover:bg-blue-600"
+                    title="Carregar imagem"
                   >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                   </button>
-                )}
+                  
+                  {previewUrl && (
+                    <button 
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="bg-red-500 p-1 rounded-full hover:bg-red-600"
+                      title="Remover imagem"
+                    >
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
+              
+              {/* Input file oculto */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/jpeg, image/png, image/gif"
+                className="hidden"
+              />
+
+              <p className="text-gray-400 text-xs mt-4">Clique no ícone de câmera para carregar uma imagem de perfil.</p>
             </div>
             
-            {/* Input file oculto */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageChange}
-              accept="image/jpeg, image/png, image/gif"
-              className="hidden"
-            />
+            {/* Campo de nome de utilizador */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Nome de Utilizador</label>
+              <input
+                className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setUsername(e.target.value)}
+                value={username}
+                type="text"
+                placeholder="Nome de utilizador"
+                required
+              />
+            </div>
+            
+            {/* Campo de e-mail */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
+              <input
+                className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setEmail(e.target.value)}
+                value={email}
+                type="email"
+                placeholder="seu-email@exemplo.com"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition flex justify-center items-center"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+              ) : null}
+              Salvar Alterações
+            </button>
+          </form>
+        )}
 
-            <p className="text-gray-400 text-xs mt-4">Clique no ícone de câmera para carregar uma imagem de perfil.</p>
-          </div>
-          
-          {/* Campo de nome de utilizador */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Nome de Utilizador</label>
-            <input
-              className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) => setUsername(e.target.value)}
-              value={username}
-              type="text"
-              placeholder="Nome de utilizador"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition flex justify-center items-center"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-            ) : null}
-            Salvar Alterações
-          </button>
-        </form>
+        {/* Aba de Segurança */}
+        {activeTab === 'security' && (
+          <form onSubmit={handleSecuritySubmit} className="flex flex-col space-y-4">
+            {/* Campo de senha atual */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Password Atual</label>
+              <input
+                className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                value={currentPassword}
+                type="password"
+                placeholder="Sua Password atual"
+                required
+              />
+            </div>
+            
+            {/* Campo de nova senha */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Nova Password</label>
+              <input
+                className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setNewPassword(e.target.value)}
+                value={newPassword}
+                type="password"
+                placeholder="Nova Password"
+                required
+              />
+            </div>
+            
+            {/* Campo de confirmação de senha */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Confirmar Nova Password</label>
+              <input
+                className="border border-gray-600 bg-gray-700 text-white rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                value={confirmPassword}
+                type="password"
+                placeholder="Confirme a nova Password"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition flex justify-center items-center"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+              ) : null}
+              Atualizar Password
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

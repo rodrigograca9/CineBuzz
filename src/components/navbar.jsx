@@ -82,7 +82,7 @@ export default function Navbar() {
         .single();
 
       if (error) {
-        console.error("Erro ao buscar dados do utilizador:", error);
+        console.error("Erro ao procurar dados do utilizador:", error);
         return;
       }
 

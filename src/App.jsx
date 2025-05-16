@@ -14,6 +14,8 @@ import UserWatchList from "./pages/UserWatchList";
 import AdminPanel from "./pages/AdminPanel";
 import AdminWrapper from "./pages/Wrapper";
 import ListDetail from "./pages/ListDetails";
+import SearchResultsPage from './components/SearchResultsPage';
+import PublicProfilePage from "./pages/PublicProfilePage";
 
 export default function App() {
   return (
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/movies" element={<MoviePage />} />
             <Route path="/movie/:id" element={<MovieDetails />} />
+            <Route path="/search" element={<SearchResultsPage />} />
+            <Route path="/profile/:uid" element={<PublicProfilePage />} />
           </Routes>
         </div>
         <Footer />

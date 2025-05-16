@@ -381,8 +381,15 @@ export default function MovieDetails() {
 
   // Manipulador para abrir diálogo de listas
   const handleAddToList = () => {
+    // Se não estiver logado, salvar a URL atual e redirecionar para login
     if (!userId) {
+      // Salvar URL atual no localStorage
+      localStorage.setItem('redirectAfterLogin', `/movie/${id}`);
+      
+      // Alertar o usuário
       alert("Você precisa estar logado para adicionar filmes às suas listas.");
+      
+      // Redirecionar para página de login
       navigate("/login");
       return;
     }
@@ -836,7 +843,7 @@ export default function MovieDetails() {
                   disabled={loading}
                   className="bg-[#4ea4cf] hover:bg-[#4593bb] px-4 py-2 rounded-md transition-colors"
                 >
-                  Salvar
+                  Guardar
                 </button>
               </div>
             </div>

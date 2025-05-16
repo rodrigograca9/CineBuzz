@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import supabase from '../helper/supabaseClient';
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [identifier, setIdentifier] = useState(""); // Pode ser email ou username
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Verificar se existe uma URL de redirecionamento no localStorage
+  useEffect(() => {
+    // Se tiver um parâmetro de redirecionamento na URL, usá-lo
+    const params = new URLSearchParams(location.search);
+    const redirectUrl = params.get('redirect');
+    
+    if (redirectUrl) {
+      localStorage.setItem('redirectAfterLogin', redirectUrl);
+    }
+  }, [location]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -90,9 +102,17 @@ function Login() {
     setMessage("Login bem-sucedido! A redirecionar...");
     setMessageType("success");
     
-    // Redirecionar para a página principal após 1.5 segundos
+    // Verificar se existe uma URL de redirecionamento
+    const redirectUrl = localStorage.getItem('redirectAfterLogin');
+    
+    // Redirecionar após 1.5 segundos
     setTimeout(() => {
-      navigate("/");
+      if (redirectUrl) {
+        localStorage.removeItem('redirectAfterLogin'); // Limpar após usar
+        navigate(redirectUrl);
+      } else {
+        navigate("/");
+      }
     }, 1500);
   };
 
@@ -142,9 +162,12 @@ function Login() {
             Entrar
           </button>
         </form>
-        <p className="text-center text-sm text-gray-400 mt-4">
-          Não tem uma conta? <Link to="/register" className="text-blue-400 hover:underline">Fazer registo</Link>
-        </p>
+        
+        <div className="flex flex-col space-y-2 mt-4">
+          <p className="text-center text-sm text-gray-400">
+            Não tem uma conta? <Link to="/register" className="text-blue-400 hover:underline">Fazer registo</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

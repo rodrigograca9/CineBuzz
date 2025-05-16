@@ -30,6 +30,9 @@ Desenvolvido com React, Tailwind CSS, Supabase e integração com a API da TMDB,
 ---
 
 Projeto Realizado por: Rodrigo Graça e Francisco Velhinho
+
 Unidade curricular de Projeto e Desenvolvimento Informático
+
 Lic em Informática de Gestão
+
 ISCAC, Coimbra

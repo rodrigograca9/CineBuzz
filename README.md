@@ -33,9 +33,3 @@ Projeto Realizado por: Rodrigo Graça e Francisco Velhinho
 Unidade curricular de Projeto e Desenvolvimento Informático
 Lic em Informática de Gestão
 ISCAC, Coimbra
-
-# Cria um ficheiro .env com as variáveis de ambiente da Supabase e da TMDB API
-cp .env.example .env
-
-# Inicia a aplicação localmente
-npm run dev

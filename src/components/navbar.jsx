@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FaSearch, FaBars, FaTimes } from "react-icons/fa";
 import supabase from "../helper/supabaseClient";
 
@@ -11,24 +11,53 @@ export default function Navbar() {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setIsLoggedIn(true);
-        fetchUserData(data.session.user.id);
-      } else {
-        setIsLoggedIn(false);
-        setUserData(null);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setIsLoggedIn(true);
+          fetchUserData(data.session.user.id);
+          
+          // Apenas verifique o redirecionamento durante a verificação inicial
+          // e somente se o usuário não estava previamente logado
+          if (!isLoggedIn) {
+            const redirectPath = localStorage.getItem('redirectAfterLogin');
+            if (redirectPath) {
+              localStorage.removeItem('redirectAfterLogin');
+              navigate(redirectPath);
+            }
+          }
+        } else {
+          setIsLoggedIn(false);
+          setUserData(null);
+        }
+      } catch (error) {
+        console.error("Erro ao verificar autenticação:", error);
       }
     };
 
+    // Verificamos a autenticação apenas uma vez na montagem inicial
+    checkAuth();
+
+    // Configuramos o listener de mudança de estado separadamente
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session) {
           setIsLoggedIn(true);
           fetchUserData(session.user.id);
+          
+          // Para o evento SIGNED_IN, verificamos o redirecionamento
+          const redirectPath = localStorage.getItem('redirectAfterLogin');
+          if (redirectPath) {
+            // Pequeno atraso para garantir que o estado seja atualizado corretamente
+            setTimeout(() => {
+              localStorage.removeItem('redirectAfterLogin');
+              navigate(redirectPath);
+            }, 100);
+          }
         } else if (event === "SIGNED_OUT") {
           setIsLoggedIn(false);
           setUserData(null);
@@ -36,14 +65,12 @@ export default function Navbar() {
       }
     );
 
-    checkAuth();
-
     return () => {
       if (authListener?.subscription) {
         authListener.subscription.unsubscribe();
       }
     };
-  }, []);
+  }, [navigate, isLoggedIn]);
 
   useEffect(() => {
     if (!userData?.uid) return;
@@ -72,6 +99,27 @@ export default function Navbar() {
       clearInterval(refreshInterval);
     };
   }, [userData?.uid]);
+  
+  // useEffect para gerenciar redirecionamentos após login
+  useEffect(() => {
+    // Função para lidar com redirecionamentos após login
+    const handleRedirectAfterLogin = () => {
+      const redirectPath = localStorage.getItem('redirectAfterLogin');
+      if (redirectPath) {
+        localStorage.removeItem('redirectAfterLogin');
+        // Evite loops de redirecionamento: só redirecione se não estivermos 
+        // já na página alvo ou se não for a página inicial
+        if (location.pathname !== redirectPath && redirectPath !== "/") {
+          navigate(redirectPath);
+        }
+      }
+    };
+
+    // Se o usuário estiver logado, verifique se há um redirecionamento pendente
+    if (isLoggedIn && userData?.uid) {
+      handleRedirectAfterLogin();
+    }
+  }, [isLoggedIn, userData, navigate, location.pathname]);
 
   const fetchUserData = async (userId) => {
     try {
@@ -100,6 +148,7 @@ export default function Navbar() {
       navigate(`/search?q=${search}`);
       setSearch("");
       setSearchExpanded(false);
+      setMobileMenuOpen(false);
     }
   };
 
@@ -114,8 +163,21 @@ export default function Navbar() {
     }
   };
 
+  // Função modificada para salvar a URL atual antes de redirecionar para o login
+  const handleLoginClick = () => {
+    // Verifica se a página atual não é a própria página de login ou registro
+    if (location.pathname !== "/login" && location.pathname !== "/register") {
+      localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
+    }
+    navigate("/login");
+    setMobileMenuOpen(false);
+  };
+
   const handleLogout = async () => {
     try {
+      // Limpar qualquer redirecionamento pendente ao fazer logout
+      localStorage.removeItem('redirectAfterLogin');
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("Erro ao fazer logout:", error);
@@ -172,7 +234,7 @@ export default function Navbar() {
                 placeholder="Pesquisar..."
                 className="p-2 pl-4 pr-10 bg-gray-700 text-white outline-none w-48"
               />
-              <button type="button" onClick={toggleSearch} className="absolute right-3 text-gray-400 hover:text-white">
+              <button type="submit" className="absolute right-3 text-gray-400 hover:text-white">
                 <FaSearch />
               </button>
             </form>
@@ -214,7 +276,7 @@ export default function Navbar() {
           </div>
         ) : (
           <>
-            <button onClick={() => navigate("/login")} className="hover:text-[#1D4ED8]">Login</button>
+            <button onClick={handleLoginClick} className="hover:text-[#1D4ED8]">Login</button>
             <button onClick={() => navigate("/register")} className="hover:text-[#1D4ED8]">Sign Up</button>
           </>
         )}
@@ -241,13 +303,21 @@ export default function Navbar() {
 
           {/* Search on Mobile */}
           <form onSubmit={handleSearch} className="w-full">
-            <input
-              type="text"
-              placeholder="Pesquisar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full p-2 rounded bg-gray-600 text-white"
-            />
+            <div className="flex items-center">
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full p-2 rounded-l bg-gray-600 text-white"
+              />
+              <button 
+                type="submit" 
+                className="bg-gray-700 p-2 rounded-r"
+              >
+                <FaSearch />
+              </button>
+            </div>
           </form>
 
           {isLoggedIn && userData ? (
@@ -261,7 +331,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}>Login</button>
+              <button onClick={handleLoginClick} className="hover:text-[#1D4ED8]">Login</button>
               <button onClick={() => { navigate("/register"); setMobileMenuOpen(false); }}>Sign Up</button>
             </>
           )}

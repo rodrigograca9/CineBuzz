@@ -279,56 +279,71 @@ const EditProfileModal = ({ isOpen, onClose, userData, onProfileUpdate }) => {
     }
   };
 
-  const handleSecuritySubmit = async (event) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setMessage("");
+const handleSecuritySubmit = async (event) => {
+  event.preventDefault();
+  setIsLoading(true);
+  setMessage("");
 
-    // Validação de senha
-    if (newPassword !== confirmPassword) {
-      setMessage("As passwords não coincidem");
+  if (newPassword !== confirmPassword) {
+    setMessage("As passwords não coincidem");
+    setMessageType("error");
+    setIsLoading(false);
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    setMessage("A password deve ter pelo menos 6 caracteres");
+    setMessageType("error");
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    // Obter o email do utilizador autenticado
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentEmail = sessionData.session.user.email;
+
+    // Reautenticar com password atual
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: currentPassword
+    });
+
+    if (loginError) {
+      setMessage("Password atual incorreta.");
       setMessageType("error");
       setIsLoading(false);
       return;
     }
 
-    if (newPassword.length < 6) {
-      setMessage("A passsword deve ter pelo menos 6 caracteres");
-      setMessageType("error");
-      setIsLoading(false);
-      return;
+    // Atualizar password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (updateError) {
+      throw new Error("Erro ao atualizar password: " + updateError.message);
     }
 
-    try {
-      // Atualizar senha usando a API de autenticação do Supabase
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
+    // Limpar campos
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
 
-      if (error) {
-        throw new Error("Erro ao atualizar password: " + error.message);
-      }
+    setMessage("Password atualizada com sucesso!");
+    setMessageType("success");
 
-      // Limpar campos de senha
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+    setTimeout(() => {
+      onClose();
+    }, 1500);
+  } catch (error) {
+    setMessage(error.message);
+    setMessageType("error");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-      // Mostrar mensagem de sucesso
-      setMessage("Password atualizada com sucesso!");
-      setMessageType("success");
-      
-      // Fechar modal após algum tempo
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-    } catch (error) {
-      setMessage(error.message);
-      setMessageType("error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (!isOpen) return null;
 

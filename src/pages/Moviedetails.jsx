@@ -34,6 +34,8 @@ export default function MovieDetails() {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState("");
   const [userAvatar, setUserAvatar] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+
 
   // Estados para comentários
   const [comments, setComments] = useState([]);
@@ -95,11 +97,12 @@ export default function MovieDetails() {
         // Buscar dados do usuário
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("likes, watchlist, lists, username, profile_image_url")
+          .select("likes, watchlist, lists, username, profile_image_url, is_admin")
           .eq("uid", currentUserId)
           .single();
         
         if (!userError && userData) {
+          setIsAdmin(userData.is_admin === true);
           // Verificar se o filme está nos likes
           const likes = userData.likes || [];
           setIsLiked(likes.includes(id));
@@ -242,40 +245,39 @@ export default function MovieDetails() {
 
   // Manipulador para excluir um comentário
   const handleDeleteComment = async (commentId) => {
-    if (!userId) return;
-    
-    try {
-      setLoading(true);
-      
-      // Excluir comentário do banco de dados
-      const { error } = await supabase
-        .from("movie_comments")
-        .delete()
-        .eq("id", commentId)
-        .eq("user_id", userId); // Garantir que o usuário só exclua seus próprios comentários
-        
-      if (error) throw error;
-      
-      // Remover comentário da lista local
-      const updatedComments = comments.filter(comment => comment.id !== commentId);
-      setComments(updatedComments);
-      
-      // Atualizar número total de páginas
-      const totalPages = Math.ceil(updatedComments.length / commentsPerPage);
-      setTotalCommentPages(totalPages || 1);
-      
-      // Ajustar página atual se necessário
-      if (commentPage > totalPages) {
-        setCommentPage(Math.max(1, totalPages));
-      }
-      
-    } catch (error) {
-      console.error("Erro ao excluir comentário:", error);
-      alert("Erro ao excluir comentário. Tente novamente.");
-    } finally {
-      setLoading(false);
+  if (!userId) return;
+
+  try {
+    setLoading(true);
+
+    let deleteQuery = supabase
+      .from("movie_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (!isAdmin) {
+      deleteQuery = deleteQuery.eq("user_id", userId); // só restringe se não for admin
     }
-  };
+
+    const { error } = await deleteQuery;
+    if (error) throw error;
+
+    // Atualizar lista local
+    const updatedComments = comments.filter(comment => comment.id !== commentId);
+    setComments(updatedComments);
+    const totalPages = Math.ceil(updatedComments.length / commentsPerPage);
+    setTotalCommentPages(totalPages || 1);
+    if (commentPage > totalPages) {
+      setCommentPage(Math.max(1, totalPages));
+    }
+  } catch (error) {
+    console.error("Erro ao excluir comentário:", error);
+    alert("Erro ao excluir comentário. Tente novamente.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   
   // Manipulador para toggle de like
   const handleLike = async () => {
@@ -739,16 +741,17 @@ export default function MovieDetails() {
                     <p className="mt-2 text-gray-300">{comment.text}</p>
                     
                     {/* Botão de excluir (apenas visível para o autor) */}
-                    {userId === comment.userId && (
-                      <div className="mt-2 flex justify-end">
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="text-red-400 hover:text-red-500 text-sm transition-colors"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    )}
+                    {(userId === comment.userId || isAdmin) && (
+  <div className="mt-2 flex justify-end">
+    <button
+      onClick={() => handleDeleteComment(comment.id)}
+      className="text-red-400 hover:text-red-500 text-sm transition-colors"
+    >
+      Eliminar
+    </button>
+  </div>
+)}
+
                   </div>
                 </div>
               </div>

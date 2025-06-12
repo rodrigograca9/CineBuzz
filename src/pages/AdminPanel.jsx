@@ -262,12 +262,6 @@ export default function AdminPanel() {
           >
             Utilizadores
           </button>
-          <button 
-            className={`py-3 px-6 ${activeTab === "comments" ? "border-b-2 border-blue-500 text-blue-400" : "text-gray-400"}`}
-            onClick={() => setActiveTab("comments")}
-          >
-            Comentários
-          </button>
         </div>
         
         {/* Search Bar */}

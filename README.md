@@ -29,9 +29,9 @@ Desenvolvido com React, Tailwind CSS, Supabase e integração com a API da TMDB,
 
 ---
 
-Francisco Velhinho
-Rodrigo Graça
-UC de Projeto e Desenvolvimento Informático
-Lic em Informática de Gestão
-ISCAC, Coimbra, 2025
+- Francisco Velhinho
+- Rodrigo Graça
+- UC de Projeto e Desenvolvimento Informático
+- Lic em Informática de Gestão
+- ISCAC, Coimbra, 2025
 

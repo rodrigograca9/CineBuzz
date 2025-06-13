@@ -307,14 +307,14 @@ export default function ListDetail() {
       try {
         setLoading(true);
         
-        // Verificar se o usuário está autenticado
+        // Verificar se o utilizador está autenticado
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) throw new Error("Erro de autenticação: " + sessionError.message);
         
         const currentUserId = sessionData?.session?.user?.id;
         
-        // Buscar dados da lista
+        // Procurar dados da lista
         const { data: listData, error: listError } = await supabase
           .from("user_lists")
           .select("*")
@@ -328,7 +328,7 @@ export default function ListDetail() {
           throw new Error("Erro ao buscar detalhes da lista: " + listError.message);
         }
         
-        // Verificar se o usuário atual é o proprietário da lista
+        // Verificar se o utilizador atual é o proprietário da lista
         const isOwner = currentUserId && currentUserId === listData.user_id;
         setUserOwnsList(isOwner);
         
@@ -358,7 +358,7 @@ export default function ListDetail() {
       // Filtrar o ID do filme a ser removido
       const updatedMovies = movies.filter(id => id !== movieToRemove);
       
-      // Atualizar no banco de dados
+      // Atualizar na base de dados
       const { error } = await supabase
         .from("user_lists")
         .update({ movie_ids: updatedMovies })
@@ -436,7 +436,7 @@ export default function ListDetail() {
       // Adicionar o filme à lista
       const updatedMovies = [...movies, movieId];
       
-      // Atualizar no banco de dados
+      // Atualizar na base de dados
       const { error } = await supabase
         .from("user_lists")
         .update({ movie_ids: updatedMovies })

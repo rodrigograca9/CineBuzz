@@ -24,7 +24,7 @@ export default function MovieDetails() {
   const [cast, setCast] = useState([]);
   const [director, setDirector] = useState("");
   
-  // Estados para interações do usuário
+  // Estados para interações do user
   const [isLiked, setIsLiked] = useState(false);
   const [inWatchlist, setInWatchlist] = useState(false);
   const [userLists, setUserLists] = useState([]);
@@ -80,7 +80,7 @@ export default function MovieDetails() {
       .then((data) => setCast(data.cast || []));
   }, [id]);
 
-  // Buscar estado atual de likes e listas do usuário logado
+  // Buscar estado atual de likes e listas do user logado
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -88,13 +88,13 @@ export default function MovieDetails() {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError || !sessionData?.session) {
-          return; // Usuário não está logado
+          return; // Utilizador não está logado
         }
         
         const currentUserId = sessionData.session.user.id;
         setUserId(currentUserId);
         
-        // Buscar dados do usuário
+        // Buscar dados do utilizador
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("likes, watchlist, lists, username, profile_image_url, is_admin")
@@ -111,7 +111,7 @@ export default function MovieDetails() {
           const watchlist = userData.watchlist || [];
           setInWatchlist(watchlist.includes(id));
           
-          // Guardar nome e avatar do usuário
+          // Guardar nome e avatar do user
           setUserName(userData.username || "Usuário");
           setUserAvatar(userData.profile_image_url || "https://via.placeholder.com/40");
           
